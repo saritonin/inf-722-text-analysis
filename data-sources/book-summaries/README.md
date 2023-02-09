@@ -1,6 +1,6 @@
 # CMU Book Summary Dataset
 This file, containing plot summaries of books sourced from Wikipedia matched with 
-book metadata sourced from Google's now-defunct [Freebase graph database](https://developers.google.com/freebase).  
+book metadata sourced from Google's now-defunct [Freebase graph database](https://developers.google.com/freebase). 
 The former Freebase data has since been imported to Wikidata, 
 where it may [still be found](https://www.wikidata.org/wiki/Wikidata:WikiProject_Freebase).
 
