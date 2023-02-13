@@ -1,12 +1,36 @@
-install.packages("tidyverse")
-library(tidyverse)
+#-------------------------------------------------------------------------------
+# check for dependencies and load packages
+#-------------------------------------------------------------------------------
+# Package names
+packages <- c("tidyverse")
 
-setwd("~/Documents/School/PhD/2023-01 Spring Semester/INF 722 - Information Organization/TextAnalysisProject")
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
 
-bookSummaries <- read_tsv("booksummaries/booksummaries.txt", col_names = FALSE)
+# Load packages
+invisible(lapply(packages, library, character.only = TRUE))
 
-names(bookSummaries) <- names(bookSummaries) <- c("wikipediaArticleId","freebaseId","bookTitle","author","publicationDate","bookGenres","plotSummary")
+#-------------------------------------------------------------------------------
+# Load data from text files
+#-------------------------------------------------------------------------------
+# Read data from file and set column names
 
+# CMU Book Summary Dataset
+bookSummaries <- read_tsv("data-sources/book-summaries/booksummaries.txt", col_names = FALSE)
+names(bookSummaries) <- c("wikipediaArticleId","freebaseId","bookTitle","author","publicationDate","bookGenres","plotSummary")
+
+# UCI Gender by Name Dataset
+# Note: "gender" in the dataset refers to M/F assigned at birth.  
+# This analysis uses "sex" to describe this information to align with current usage.
+sexByName <- read_csv("data-sources/sex-by-name/name_gender_dataset.csv")
+names(sexByName) <- c("name","sex","count","probability")
+
+#-------------------------------------------------------------------------------
+# Data preparation and merging
+#-------------------------------------------------------------------------------
 # split out author first name
 # author first name must be at least 2 letters followed by a space
 
@@ -16,34 +40,36 @@ bookSummaries %>% filter(!is.na(authorFirst)) %>% nrow() # 13303 records
 
 bookSummaries %>% filter(!is.na(authorFirst)) %>%  count(authorFirst) %>% arrange(desc(n)) # John = 478
 
-# load the genderByName dataset
-genderByName <- read_csv("genderByName/name_gender_dataset.csv")
+# describe the sexByName dataset
+sexByName %>% count(name) %>% arrange(desc(n))
 
-genderByName %>% count(Name) %>% arrange(desc(n))
+# create a new data frame for data about the probable sex associated with a given name
+probableSex <- as.data.frame(unique(sexByName$name))
 
-probableGender <- as.data.frame(unique(genderByName$Name))
-
-names(probableGender) <- "name"
+names(probableSex) <- c("name")
 
 # retrieve number of males with a given name
-genderByName[genderByName$Gender == 'M',c(1,3)]
+sexByName[sexByName$male == 'M',c(1,3)]
 
-probableGender <- left_join(probableGender,genderByName[genderByName$Gender == 'M',c(1,3)], by=c("name" = "Name"))
+probableSex <- left_join(probableSex,sexByName[sexByName$sex == 'M',c(1,3)], by=c("name"))
 
 names(probableGender) <- c("name","countM")
 
 # retrieve number of females with a given name
-probableGender <- left_join(probableGender,genderByName[genderByName$Gender == 'F',c(1,3)], by=c("name" = "Name"))
+probableSex <- left_join(probableSex,sexByName[sexByName$sex == 'F',c(1,3)], by=c("name"))
 
-names(probableGender) <- c("name","countM","countF")
+names(probableSex) <- c("name","countM","countF")
 
 # calculate name "maleness" - likelihood the name is associated with a Male vs Female
-probableGender$nameMaleness = (probableGender$countM)/(probableGender$countF + probableGender$countM)
+probableSex$nameMaleness = (probableSex$countM)/(probableSex$countF + probableSex$countM)
 
-probableGender %>% arrange(desc(nameMaleness))
+# TODO: update nameMaleness for names associated with only M or only F (1 or 0 respectively)
+
+# verify nameMaleness data
+probableSex %>% arrange(desc(nameMaleness))
 
 # join nameMaleness into the bookSummaries data
-bookSummaries <- left_join(bookSummaries, probableGender, by=c("authorFirst" = "name"), )
+bookSummaries <- left_join(bookSummaries, probableSex, by=c("authorFirst" = "name"), )
 
 # remove extraneous columns
 bookSummaries$countM <- NULL
