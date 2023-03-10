@@ -19,7 +19,7 @@ invisible(lapply(packages, library, character.only = TRUE))
 # Read data from file and set column names
 
 # CMU Book Summary Dataset
-bookSummaries <- read_tsv("data-sources/book-summaries/booksummaries.txt", col_names = FALSE)
+bookSummaries <- read_tsv("data-sources/book-summaries/booksummaries/booksummaries.txt", col_names = FALSE)
 names(bookSummaries) <- c("wikipediaArticleId","freebaseId","bookTitle","author","publicationDate","bookGenres","plotSummary")
 
 # UCI Gender by Name Dataset
@@ -49,21 +49,26 @@ probableSex <- as.data.frame(unique(sexByName$name))
 names(probableSex) <- c("name")
 
 # retrieve number of males with a given name
-sexByName[sexByName$male == 'M',c(1,3)]
+sexByName[sexByName$sex == 'M',c(1,3)]
 
 probableSex <- left_join(probableSex,sexByName[sexByName$sex == 'M',c(1,3)], by=c("name"))
 
-names(probableGender) <- c("name","countM")
+names(probableSex) <- c("name","countM")
 
 # retrieve number of females with a given name
 probableSex <- left_join(probableSex,sexByName[sexByName$sex == 'F',c(1,3)], by=c("name"))
 
 names(probableSex) <- c("name","countM","countF")
 
-# calculate name "maleness" - likelihood the name is associated with a Male vs Female
-probableSex$nameMaleness = (probableSex$countM)/(probableSex$countF + probableSex$countM)
+# update counts for names associated with only M or only F
+probableSex$countM[is.na(probableSex$countM)] <- 0
+probableSex$countF[is.na(probableSex$countF)] <- 0
 
-# TODO: update nameMaleness for names associated with only M or only F (1 or 0 respectively)
+# calculate name "maleness" - likelihood the name is associated with a Male vs Female
+probableSex$nameMaleness <- (probableSex$countM)/(probableSex$countF + probableSex$countM)
+
+# calculate name "maleness" - likelihood the name is associated with a Female vs Male
+probableSex$nameFemaleness <- (probableSex$countF)/(probableSex$countF + probableSex$countM)
 
 # verify nameMaleness data
 probableSex %>% arrange(desc(nameMaleness))
@@ -78,11 +83,9 @@ bookSummaries$countF <- NULL
 # verify join results
 bookSummaries %>% filter(!is.na(nameMaleness)) %>% nrow() # 11098
 
-bookSummaries  %>% filter(!is.na(nameMaleness)) %>% summarize(meanMaleness = mean(nameMaleness)) # 0.713
+bookSummaries %>% filter(!is.na(nameMaleness)) %>% summarize(meanMaleness = mean(nameMaleness)) # 0.713
 
 # add a rough word count
 bookSummaries$summaryWordCount <- str_count(bookSummaries$plotSummary, '\\w+')
 
 bookSummaries %>% filter(!is.na(nameMaleness)) %>% summarize(totalWords = sum(summaryWordCount))
-
-
