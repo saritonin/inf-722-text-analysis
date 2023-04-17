@@ -83,4 +83,4 @@ bookSummaries$countF <- NULL
 # verify join results
 bookSummaries %>% filter(!is.na(nameMaleness)) %>% nrow() # 11098
 
-bookSummaries %>% filter(!is.na(nameMaleness)) %>% summarize(meanMaleness = mean(nameMaleness)) # 0.713
+bookSummaries %>% filter(!is.na(nameMaleness)) %>% dplyr::summarize(meanMaleness = mean(nameMaleness)) # 0.713
