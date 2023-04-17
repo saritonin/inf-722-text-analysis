@@ -53,6 +53,7 @@ ggplot(bookSummaries, aes(x = authorSex)) +
 # add a rough word count
 bookSummaries$summaryWordCount <- str_count(bookSummaries$plotSummary, '\\w+')
 
+# this statement is broken!!!!! TODO: FIX ME
 wordCounts <- bookSummaries %>% group_by(authorSex) %>% summarize(meanWords = mean(summaryWordCount))
 
 # plot summary word count by authorSex
