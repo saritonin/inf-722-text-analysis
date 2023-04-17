@@ -5,7 +5,7 @@
 # check for dependencies and load packages
 #-------------------------------------------------------------------------------
 # Package names
-packages <- c("tidyverse","psych","Hmisc","koRpus")
+packages <- c("tidyverse","psych","Hmisc","koRpus","koRpus.lang.en")
 
 # Install packages not yet installed
 installed_packages <- packages %in% rownames(installed.packages())
@@ -112,9 +112,9 @@ res2$P
 #-------------------------------------------------------------------------------
 # Analysis 2: readability level
 #-------------------------------------------------------------------------------
-install.koRpus.lang("en")
+# install.koRpus.lang("en")
 
-library(koRpus.lang.en)
+# library(koRpus.lang.en)
 
 ################################################################################
 ### HYPOTHESIS 4
