@@ -166,18 +166,18 @@ bookSummaries$charactersI <- bookSummaries$characterSexes %>% sapply(paste,"coll
 bookSummaries$characterPctM <- bookSummaries$charactersM/(bookSummaries$charactersM + bookSummaries$charactersF)
 bookSummaries$charactersMoreMInt <- case_when(bookSummaries$characterPctM > 0.5 ~ 1,
                                               TRUE ~ 0)
-bookSummaries$charactersMuchMoreMInt <- case_when(bookSummaries$characterPctM > 0.75 ~ 1,
+bookSummaries$charactersMuchMoreMInt <- case_when(bookSummaries$characterPctM >= 0.75 ~ 1,
                                                   TRUE ~ 0)
 
-bookSummaries$characterSexImbalanceInt <- case_when(bookSummaries$characterPctM > 0.75 ~ 1,
-                                                    bookSummaries$characterPctM < 0.25 ~ 1,
+bookSummaries$characterSexImbalanceInt <- case_when(bookSummaries$characterPctM >= 0.75 ~ 1,
+                                                    bookSummaries$characterPctM <= 0.25 ~ 1,
                                                     TRUE ~ 0)
 
 bookSummaries$characterSexImbalanceText <- case_when(bookSummaries$characterPctM >= 0.90 ~ 'Characters are nearly all male',
                                                  bookSummaries$characterPctM >= 0.75 ~ 'Characters are mostly male',
-                                                 bookSummaries$characterPctM >= 0.25 ~ 'Character sexes are somewhat balanced',
-                                                 bookSummaries$characterPctM >= 0.10 ~ 'Characters are mostly female',
-                                                 bookSummaries$characterPctM < 0.10 ~ 'Characters are nearly all female',
+                                                 bookSummaries$characterPctM > 0.25 ~ 'Character sexes are somewhat balanced',
+                                                 bookSummaries$characterPctM > 0.10 ~ 'Characters are mostly female',
+                                                 bookSummaries$characterPctM <= 0.10 ~ 'Characters are nearly all female',
                                                  TRUE ~ 'Unknown')
 
 # more than 50% of characters are male
@@ -194,4 +194,44 @@ chisq.test(bookSummaries$authorSexInt, bookSummaries$charactersMuchMoreMInt)
 corr.test(bookSummaries$authorSexInt, bookSummaries$characterSexImbalanceInt)
 
 chisq.test(bookSummaries$authorSexInt, bookSummaries$characterSexImbalanceInt)
+
+chisq.test(bookSummaries$authorSexInt, bookSummaries$characterSexImbalanceInt)$observed
+
+
+# attempt with more categories
+
+hyp4dataSummary <- bookSummaries %>% filter(authorProbableSex %in% c('Male','Female') & characterSexImbalanceText != 'Unknown') %>% group_by(authorProbableSex) %>% count(characterSexImbalanceText) %>% print(n=100)
+
+hyp4data <- bookSummaries %>% filter(authorProbableSex %in% c('Male','Female') & characterSexImbalanceText != 'Unknown') %>% select(authorProbableSex,characterSexImbalanceText)
+
+hyp4chisq <- chisq.test(hyp4data$authorProbableSex,hyp4data$characterSexImbalanceText)
+
+# ensure significance
+hyp4chisq$p.value
+# [1] 1.43658e-72
+
+# check Pearson residuals
+round(hyp4chisq$residuals,3)
+
+# make a nice graph
+library(corrplot)
+
+corrplot(hyp4chisq$residuals,is.cor=FALSE)
+
+# reorder the columns
+hyp4data$characterSexImbalanceText <- as.factor(hyp4data$characterSexImbalanceText)
+hyp4data$authorProbableSex <- as.factor(hyp4data$authorProbableSex)
+
+levels(hyp4data$characterSexImbalanceText)
+hyp4data$characterSexImbalanceText <- factor(hyp4data$characterSexImbalanceText, levels=c('Characters are nearly all female',
+                                                                                          'Characters are mostly female',
+                                                                                          'Character sexes are somewhat balanced',
+                                                                                          'Characters are mostly male',
+                                                                                          'Characters are nearly all male'))
+
+hyp4chisq <- chisq.test(hyp4data$authorProbableSex,hyp4data$characterSexImbalanceText)
+
+corrplot(hyp4chisq$residuals,is.cor=FALSE)
+
+?corrplot
 
