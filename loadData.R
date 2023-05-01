@@ -73,14 +73,15 @@ probableSex$nameFemaleness <- (probableSex$countF)/(probableSex$countF + probabl
 # verify nameMaleness data
 probableSex %>% arrange(desc(nameMaleness))
 
-# join nameMaleness into the bookSummaries data
-bookSummaries <- left_join(bookSummaries, probableSex, by=c("authorFirst" = "name"), )
+# add a probableSex column with the values "Male" "Female" or "Indeterminate"
+probableSex$probableSex <- case_when(probableSex$nameMaleness >= .6 ~ "Male",
+                                     probableSex$nameFemaleness >= .6 ~ "Female",
+                                     TRUE ~ "Indeterminate")
 
-# remove extraneous columns
-bookSummaries$countM <- NULL
-bookSummaries$countF <- NULL
+# verify descriptive label
+probableSex %>% count(probableSex)
 
-# verify join results
-bookSummaries %>% filter(!is.na(nameMaleness)) %>% nrow() # 11098
+# join probableSex into the bookSummaries data
+bookSummaries <- left_join(bookSummaries, probableSex[,c('name','probableSex')], by=c("authorFirst" = "name"), )
 
-bookSummaries %>% filter(!is.na(nameMaleness)) %>% dplyr::summarize(meanMaleness = mean(nameMaleness)) # 0.713
+bookSummaries <- bookSummaries %>% rename(authorProbableSex = probableSex)

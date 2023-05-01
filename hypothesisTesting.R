@@ -21,13 +21,8 @@ invisible(lapply(packages, library, character.only = TRUE))
 ################################################################################
 # Hypothesis 1: Males have more book authorships than females within the Wikipedia database.
 
-# add a authorSex column to the bookSummaries dataframe
-bookSummaries$authorSex <- case_when(bookSummaries$nameMaleness >= 0.60 ~ "Male",
-                                     bookSummaries$nameFemaleness >= 0.60 ~ "Female",
-                                     TRUE ~ "Indeterminate")
-
 # plot maleness vs femaleness
-ggplot(bookSummaries, aes(x = authorSex)) + 
+ggplot(bookSummaries, aes(x = authorProbableSex)) + 
   geom_bar() +
   geom_text(aes(label = ..count..), stat = "count", vjust = 1.5, colour = "white")+
   labs(title = "Corpus authorship by sex") +
@@ -53,10 +48,10 @@ ggplot(bookSummaries, aes(x = authorSex)) +
 # add a rough word count
 bookSummaries$summaryWordCount <- str_count(bookSummaries$plotSummary, '\\w+')
 
-wordCounts <- bookSummaries %>% group_by(authorSex) %>% dplyr::summarize(meanWords = mean(summaryWordCount))
+wordCounts <- bookSummaries %>% group_by(authorProbableSex) %>% dplyr::summarize(meanWords = mean(summaryWordCount))
 
 # plot summary word count by authorSex
-ggplot(wordCounts, aes(x = authorSex, y = meanWords)) + 
+ggplot(wordCounts, aes(x = authorProbableSex, y = meanWords)) + 
   geom_col() +
   geom_text(aes(label = meanWords), vjust = 1.5, color = "white")+
   labs(title = "Average word count of plot summary by author's sex") +
@@ -74,8 +69,8 @@ ggplot(wordCounts, aes(x = authorSex, y = meanWords)) +
 
 bookSummaries$authorSexInt <- NULL
 
-bookSummaries$authorSexInt <- ifelse(bookSummaries$authorSex == 'Male',1,
-                                     ifelse(bookSummaries$authorSex == 'Female',0,NA))
+bookSummaries$authorSexInt <- ifelse(bookSummaries$authorProbableSex == 'Male',1,
+                                     ifelse(bookSummaries$authorProbableSex == 'Female',0,NA))
 
 #-------------------------------------------------------------------------------
 # different correlation testing options
@@ -122,12 +117,81 @@ res2$P
 # Hypothesis 4: Authors with higher femaleness write more inclusively (characters including more gender diversity) than authors with higher maleness. 
 
 # For each plotSummary, extract the potential names of any characters ( Capital letter + at least one lowercase letter )
+bookSummaries$plotCharacters <- str_extract_all(bookSummaries$plotSummary,"\\b[:upper:][:lower:]+\\b") %>% sapply(unique)
 
 # For each character, analyze nameMaleness/nameFemaleness as in Hypothesis 1 and assign a characterSex
+# TODO: make this processing more efficient and/or make the "loop" through the dataframe better
+
+getProbableSex <- probableSex$probableSex
+names(getProbableSex) <- probableSex$name
+
+fGetProbableSex <- function(nameToLookup) {
+  returnedSex <- unname(getProbableSex[nameToLookup])
+  return(returnedSex)
+}
+
+# Process the dataframe in pieces to ensure that we can save/resume as needed
+bookSummaries$characterSexes[1:2000] <- 
+  bookSummaries$plotCharacters[1:2000] %>% sapply(fGetProbableSex)
+
+bookSummaries$characterSexes[2000:4000] <- 
+  bookSummaries$plotCharacters[2000:4000] %>% sapply(fGetProbableSex)
+
+bookSummaries$characterSexes[4000:6000] <- 
+  bookSummaries$plotCharacters[4000:6000] %>% sapply(fGetProbableSex)
+
+bookSummaries$characterSexes[6000:8000] <- 
+  bookSummaries$plotCharacters[6000:8000] %>% sapply(fGetProbableSex)
+
+bookSummaries$characterSexes[8000:10000] <- 
+  bookSummaries$plotCharacters[8000:10000] %>% sapply(fGetProbableSex)
+
+bookSummaries$characterSexes[10000:12000] <- 
+  bookSummaries$plotCharacters[10000:12000] %>% sapply(fGetProbableSex)
+
+bookSummaries$characterSexes[12000:14000] <- 
+  bookSummaries$plotCharacters[12000:14000] %>% sapply(fGetProbableSex)
+
+bookSummaries$characterSexes[14000:16559] <- 
+  bookSummaries$plotCharacters[14000:16559] %>% sapply(fGetProbableSex)
 
 # Calculate the number of male, female, and indeterminate characters mentioned in each plot summary
+bookSummaries$charactersM <- bookSummaries$characterSexes %>% sapply(paste,"collapse='|'") %>% sapply(str_count,'Male') %>% sapply(sum)
+  
+bookSummaries$charactersF <- bookSummaries$characterSexes %>% sapply(paste,"collapse='|'") %>% sapply(str_count,'Female') %>% sapply(sum)
+  
+bookSummaries$charactersI <- bookSummaries$characterSexes %>% sapply(paste,"collapse='|'") %>% sapply(str_count,'Indeterminate') %>% sapply(sum)
 
 # Do correlation analysis: count of M characters, count of F characters, ratio of M/F characters
+bookSummaries$characterPctM <- bookSummaries$charactersM/(bookSummaries$charactersM + bookSummaries$charactersF)
+bookSummaries$charactersMoreMInt <- case_when(bookSummaries$characterPctM > 0.5 ~ 1,
+                                              TRUE ~ 0)
+bookSummaries$charactersMuchMoreMInt <- case_when(bookSummaries$characterPctM > 0.75 ~ 1,
+                                                  TRUE ~ 0)
 
+bookSummaries$characterSexImbalanceInt <- case_when(bookSummaries$characterPctM > 0.75 ~ 1,
+                                                    bookSummaries$characterPctM < 0.25 ~ 1,
+                                                    TRUE ~ 0)
 
+bookSummaries$characterSexImbalanceText <- case_when(bookSummaries$characterPctM >= 0.90 ~ 'Characters are nearly all male',
+                                                 bookSummaries$characterPctM >= 0.75 ~ 'Characters are mostly male',
+                                                 bookSummaries$characterPctM >= 0.25 ~ 'Character sexes are somewhat balanced',
+                                                 bookSummaries$characterPctM >= 0.10 ~ 'Characters are mostly female',
+                                                 bookSummaries$characterPctM < 0.10 ~ 'Characters are nearly all female',
+                                                 TRUE ~ 'Unknown')
+
+# more than 50% of characters are male
+corr.test(bookSummaries$authorSexInt, bookSummaries$charactersMoreMInt)
+
+chisq.test(bookSummaries$authorSexInt, bookSummaries$charactersMoreMInt)
+
+# more than 75% of characters are male
+corr.test(bookSummaries$authorSexInt, bookSummaries$charactersMuchMoreMInt)
+
+chisq.test(bookSummaries$authorSexInt, bookSummaries$charactersMuchMoreMInt)
+
+# more that 75% of characters are one gender
+corr.test(bookSummaries$authorSexInt, bookSummaries$characterSexImbalanceInt)
+
+chisq.test(bookSummaries$authorSexInt, bookSummaries$characterSexImbalanceInt)
 
