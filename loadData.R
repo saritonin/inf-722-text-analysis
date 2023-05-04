@@ -101,11 +101,15 @@ probableSex$perceivedSex95 <- case_when(probableSex$nameMaleness >= .95 ~ "Male"
                                         probableSex$nameFemaleness >= .95 ~ "Female",
                                         TRUE ~ "Indeterminate")
 
+probableSex$perceivedSex99 <- case_when(probableSex$nameMaleness >= .99 ~ "Male",
+                                        probableSex$nameFemaleness >= .99 ~ "Female",
+                                        TRUE ~ "Indeterminate")
+
 # verify descriptive label
 # probableSex %>% count(probableSex)
 
 # join probableSex into the bookSummaries data
-bookSummaries <- left_join(bookSummaries, probableSex[,c('name','probableSex','perceivedSex60','perceivedSex70','perceivedSex80','perceivedSex90','perceivedSex95')], by=c("authorFirst" = "name"), )
+bookSummaries <- left_join(bookSummaries, probableSex[,c('name','probableSex','perceivedSex60','perceivedSex70','perceivedSex80','perceivedSex90','perceivedSex95','perceivedSex99')], by=c("authorFirst" = "name"), )
 
 # rename the "probableSex" column to be more clear for further processing
 bookSummaries <- bookSummaries %>% rename(authorProbableSex = probableSex)
@@ -124,25 +128,29 @@ left_join(
   left_join(
     left_join(
       left_join(
-        bookSummaries %>% count(perceivedSex60) %>% rename(perceivedSex = perceivedSex60, threshold60 = n),
-        bookSummaries %>% count(perceivedSex70) %>% rename(perceivedSex = perceivedSex70, threshold70 = n)
-        ),
-      bookSummaries %>% count(perceivedSex80) %>% rename(perceivedSex = perceivedSex80, threshold80 = n)
+        left_join(
+          bookSummaries %>% count(perceivedSex60) %>% rename(perceivedSex = perceivedSex60, threshold60 = n),
+          bookSummaries %>% count(perceivedSex70) %>% rename(perceivedSex = perceivedSex70, threshold70 = n)
+          ),
+        bookSummaries %>% count(perceivedSex80) %>% rename(perceivedSex = perceivedSex80, threshold80 = n)
+      ),
+      bookSummaries %>% count(perceivedSex90) %>% rename(perceivedSex = perceivedSex90, threshold90 = n)
     ),
-    bookSummaries %>% count(perceivedSex90) %>% rename(perceivedSex = perceivedSex90, threshold90 = n)
+    bookSummaries %>% count(perceivedSex95) %>% rename(perceivedSex = perceivedSex95, threshold95 = n)
   ),
-  bookSummaries %>% count(perceivedSex95) %>% rename(perceivedSex = perceivedSex95, threshold95 = n)
+  bookSummaries %>% count(perceivedSex99) %>% rename(perceivedSex = perceivedSex99, threshold99 = n)
 )
 
 thresholdEffect <- thresholdEffect %>% filter (!is.na(perceivedSex))
 
-thresholdEffect <- pivot_longer(thresholdEffect, cols=2:6, names_to="thresholdValue", values_to ="rowCount")
+thresholdEffect <- pivot_longer(thresholdEffect, cols=2:7, names_to="thresholdValue", values_to ="rowCount")
 
 thresholdEffect$thresholdValue <- case_when(thresholdEffect$thresholdValue == 'threshold60' ~ '60%',
                                             thresholdEffect$thresholdValue == 'threshold70' ~ '70%',
                                             thresholdEffect$thresholdValue == 'threshold80' ~ '80%',
                                             thresholdEffect$thresholdValue == 'threshold90' ~ '90%',
-                                            thresholdEffect$thresholdValue == 'threshold95' ~ '95%')
+                                            thresholdEffect$thresholdValue == 'threshold95' ~ '95%',
+                                            thresholdEffect$thresholdValue == 'threshold99' ~ '99%')
 
 thresholdTotalRows <- sum(thresholdEffect[thresholdEffect$thresholdValue=='60%',c('rowCount')])
 
