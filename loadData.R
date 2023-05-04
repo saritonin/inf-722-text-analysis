@@ -36,12 +36,12 @@ names(sexByName) <- c("name","sex","count","probability")
 
 bookSummaries$authorFirst <- trimws(str_extract(bookSummaries$author,"^[:alpha:][:alpha:]+[:space:]"))
 
-bookSummaries %>% filter(!is.na(authorFirst)) %>% nrow() # 13303 records
+# bookSummaries %>% filter(!is.na(authorFirst)) %>% nrow() # 13303 records
 
-bookSummaries %>% filter(!is.na(authorFirst)) %>%  count(authorFirst) %>% arrange(desc(n)) # John = 478
+# bookSummaries %>% filter(!is.na(authorFirst)) %>%  count(authorFirst) %>% arrange(desc(n)) # John = 478
 
 # describe the sexByName dataset
-sexByName %>% count(name) %>% arrange(desc(n))
+# sexByName %>% count(name) %>% arrange(desc(n))
 
 # create a new data frame for data about the probable sex associated with a given name
 probableSex <- as.data.frame(unique(sexByName$name))
@@ -49,7 +49,7 @@ probableSex <- as.data.frame(unique(sexByName$name))
 names(probableSex) <- c("name")
 
 # retrieve number of males with a given name
-sexByName[sexByName$sex == 'M',c(1,3)]
+# sexByName[sexByName$sex == 'M',c(1,3)]
 
 probableSex <- left_join(probableSex,sexByName[sexByName$sex == 'M',c(1,3)], by=c("name"))
 
@@ -71,17 +71,100 @@ probableSex$nameMaleness <- (probableSex$countM)/(probableSex$countF + probableS
 probableSex$nameFemaleness <- (probableSex$countF)/(probableSex$countF + probableSex$countM)
 
 # verify nameMaleness data
-probableSex %>% arrange(desc(nameMaleness))
+# probableSex %>% arrange(desc(nameMaleness))
 
 # add a probableSex column with the values "Male" "Female" or "Indeterminate"
+# leave this column in the dataset even though we are going more granular below
+# this will ensure that older code still works while we are changing things
 probableSex$probableSex <- case_when(probableSex$nameMaleness >= .6 ~ "Male",
                                      probableSex$nameFemaleness >= .6 ~ "Female",
                                      TRUE ~ "Indeterminate")
 
+# add perceivedSex columns to check the effect of different thresholds
+probableSex$perceivedSex60 <- case_when(probableSex$nameMaleness >= .6 ~ "Male",
+                                        probableSex$nameFemaleness >= .6 ~ "Female",
+                                        TRUE ~ "Indeterminate")
+
+probableSex$perceivedSex70 <- case_when(probableSex$nameMaleness >= .7 ~ "Male",
+                                        probableSex$nameFemaleness >= .7 ~ "Female",
+                                        TRUE ~ "Indeterminate")
+
+probableSex$perceivedSex80 <- case_when(probableSex$nameMaleness >= .8 ~ "Male",
+                                        probableSex$nameFemaleness >= .8 ~ "Female",
+                                        TRUE ~ "Indeterminate")
+
+probableSex$perceivedSex90 <- case_when(probableSex$nameMaleness >= .9 ~ "Male",
+                                        probableSex$nameFemaleness >= .9 ~ "Female",
+                                        TRUE ~ "Indeterminate")
+
+probableSex$perceivedSex95 <- case_when(probableSex$nameMaleness >= .95 ~ "Male",
+                                        probableSex$nameFemaleness >= .95 ~ "Female",
+                                        TRUE ~ "Indeterminate")
+
 # verify descriptive label
-probableSex %>% count(probableSex)
+# probableSex %>% count(probableSex)
 
 # join probableSex into the bookSummaries data
-bookSummaries <- left_join(bookSummaries, probableSex[,c('name','probableSex')], by=c("authorFirst" = "name"), )
+bookSummaries <- left_join(bookSummaries, probableSex[,c('name','probableSex','perceivedSex60','perceivedSex70','perceivedSex80','perceivedSex90','perceivedSex95')], by=c("authorFirst" = "name"), )
 
+# rename the "probableSex" column to be more clear for further processing
 bookSummaries <- bookSummaries %>% rename(authorProbableSex = probableSex)
+
+# check effect of perceivedSex higher threshold
+# bookSummaries %>% 
+#  filter(perceivedSex70 == 'Indeterminate' & authorProbableSex != 'Indeterminate') %>% count(authorProbableSex)
+# RESULT of increasing threshold from 60% to 80%:
+# 226 rows affected - 102 female and 124 male --> indeterminate
+
+# RESULT of increasing threshold from 60% to 90%:
+# 595 rows affected - 235 female and 360 male --> indeterminate
+
+thresholdEffect <-
+left_join(
+  left_join(
+    left_join(
+      left_join(
+        bookSummaries %>% count(perceivedSex60) %>% rename(perceivedSex = perceivedSex60, threshold60 = n),
+        bookSummaries %>% count(perceivedSex70) %>% rename(perceivedSex = perceivedSex70, threshold70 = n)
+        ),
+      bookSummaries %>% count(perceivedSex80) %>% rename(perceivedSex = perceivedSex80, threshold80 = n)
+    ),
+    bookSummaries %>% count(perceivedSex90) %>% rename(perceivedSex = perceivedSex90, threshold90 = n)
+  ),
+  bookSummaries %>% count(perceivedSex95) %>% rename(perceivedSex = perceivedSex95, threshold95 = n)
+)
+
+thresholdEffect <- thresholdEffect %>% filter (!is.na(perceivedSex))
+
+thresholdEffect <- pivot_longer(thresholdEffect, cols=2:6, names_to="thresholdValue", values_to ="rowCount")
+
+thresholdEffect$thresholdValue <- case_when(thresholdEffect$thresholdValue == 'threshold60' ~ '60%',
+                                            thresholdEffect$thresholdValue == 'threshold70' ~ '70%',
+                                            thresholdEffect$thresholdValue == 'threshold80' ~ '80%',
+                                            thresholdEffect$thresholdValue == 'threshold90' ~ '90%',
+                                            thresholdEffect$thresholdValue == 'threshold95' ~ '95%')
+
+thresholdTotalRows <- sum(thresholdEffect[thresholdEffect$thresholdValue=='60%',c('rowCount')])
+
+thresholdM60 <- 
+  thresholdEffect %>% 
+  filter(thresholdValue=='60%' & perceivedSex=='Male') %>%
+  pull(rowCount)
+
+thresholdI60 <-
+  thresholdEffect %>% 
+  filter(thresholdValue=='60%' & perceivedSex=='Indeterminate') %>%
+  pull(rowCount)
+
+ggplot(thresholdEffect, aes(x=thresholdValue, y=rowCount, color=perceivedSex, fill=perceivedSex)) + 
+  geom_line(aes(group=perceivedSex))+
+  geom_point(size=2, shape=21)
+
+ggplot(thresholdEffect, aes(x=thresholdValue, y=rowCount, color=perceivedSex, fill=perceivedSex)) + 
+  geom_area(aes(group=perceivedSex),
+            color="black",
+            size=.2) +
+  geom_hline(yintercept=thresholdTotalRows/2,linetype="dashed") +
+  annotate("text",x=3,y=(thresholdTotalRows/2)+(thresholdTotalRows/30), label="50%")+
+  geom_hline(yintercept=thresholdM60+(thresholdI60/2), linetype="dotted") +
+  labs(title="Effect of different threshold values on perceived sex of authors in the corpus")

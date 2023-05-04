@@ -105,6 +105,56 @@ res2$P
 # p = 0.1224107 so there is no statistical significance
 
 #-------------------------------------------------------------------------------
+# H2 CHECK MEDIAN AND OTHER STATS
+#-------------------------------------------------------------------------------
+wordCountStats <- bookSummaries %>% group_by(authorProbableSex) %>% 
+  dplyr::summarize(meanWords = mean(summaryWordCount),
+                   medianWords = median(summaryWordCount),
+                   maxWords = max(summaryWordCount),
+                   minWords = min(summaryWordCount))
+
+# plot summary word count by authorSex
+ggplot(wordCountStats, aes(x = authorProbableSex, y = medianWords)) + 
+  geom_col() +
+  geom_text(aes(label = medianWords), vjust = 1.5, color = "white")+
+  labs(title = "Median word count of plot summary by author's sex") +
+  theme(
+    panel.background = element_rect(fill='transparent', color=NA), #transparent panel bg - remove color tag for border
+    plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
+    panel.grid.major.y = element_line(color = "grey60"), # leave y major gridlines
+    panel.grid.minor = element_blank(), #remove minor gridlines
+    legend.background = element_rect(fill='transparent'), #transparent legend bg
+    legend.box.background = element_rect(fill='transparent') #transparent legend panel
+  )
+
+
+#-------------------------------------------------------------------------------
+# H2 PLAY WITH SOME HISTOGRAMS
+#-------------------------------------------------------------------------------
+# Basic histogram
+ggplot(bookSummaries, aes(x=summaryWordCount)) + geom_histogram() +
+  geom_vline(aes(xintercept=mean(summaryWordCount)),
+             color="blue", linetype="dashed", size=1)
+
+# Histogram styled
+ggplot(bookSummaries, aes(x=summaryWordCount)) + 
+  geom_histogram(colour="black", fill="white", bins=50) +
+  theme_minimal() +
+  labs(title="Number of words in plot summary", x="Number of words")
+
+# Histogram with density plot
+ggplot(bookSummaries, aes(x=summaryWordCount)) + 
+  geom_histogram(aes(y=..density..), colour="black", fill="white")+
+  geom_density(alpha=.2, fill="#FF6666") 
+
+# Interleaved histograms with mean lines
+ggplot(bookSummaries[bookSummaries$authorProbableSex=='Male'|bookSummaries$authorProbableSex=='Female',], aes(x=summaryWordCount, color=authorProbableSex)) +
+  geom_histogram(fill="white", position="dodge")+
+  geom_vline(data=wordCountStats, aes(xintercept=meanWords, color=authorProbableSex),
+             linetype="dashed")+
+  theme(legend.position="top")
+
+#-------------------------------------------------------------------------------
 # Analysis 2: readability level
 #-------------------------------------------------------------------------------
 # install.koRpus.lang("en")
