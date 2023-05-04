@@ -175,4 +175,5 @@ ggplot(thresholdEffect, aes(x=thresholdValue, y=rowCount, color=perceivedSex, fi
   geom_hline(yintercept=thresholdTotalRows/2,linetype="dashed") +
   annotate("text",x=3.5,y=(thresholdTotalRows/2)+(thresholdTotalRows/30), label="50%")+
   geom_hline(yintercept=thresholdM60+(thresholdI60/2), linetype="dotted") +
-  labs(title="Effect of different threshold values on perceived sex of authors in the corpus")
+  #labs(title="Effect of different threshold values on perceived sex of authors in the corpus")+
+  theme_minimal()
