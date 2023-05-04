@@ -22,10 +22,10 @@ invisible(lapply(packages, library, character.only = TRUE))
 # Hypothesis 1: Males have more book authorships than females within the Wikipedia database.
 
 # plot maleness vs femaleness
-ggplot(bookSummaries, aes(x = authorProbableSex)) + 
+ggplot(bookSummaries %>% filter(!is.na(perceivedSex60)), aes(x = perceivedSex60, fill=perceivedSex60)) + 
   geom_bar() +
-  geom_text(aes(label = ..count..), stat = "count", vjust = 1.5, colour = "white")+
-  labs(title = "Corpus authorship by sex") +
+  geom_text(aes(label = ..count..), stat = "count", vjust = 1.5, colour = "black", size=20)+
+  # labs(title = "Corpus authorship by sex") + 
   theme(
     panel.background = element_rect(fill='transparent', color=NA), #transparent panel bg - remove color tag for border
     plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
@@ -34,6 +34,50 @@ ggplot(bookSummaries, aes(x = authorProbableSex)) +
     legend.background = element_rect(fill='transparent'), #transparent legend bg
     legend.box.background = element_rect(fill='transparent') #transparent legend panel
   )
+
+ggplot(bookSummaries %>% filter(!is.na(perceivedSex60)), aes(x = perceivedSex99, fill=perceivedSex99)) + 
+  geom_bar() +
+  geom_text(aes(label = ..count..), stat = "count", vjust = 1.5, colour = "black", size=20)+
+  # labs(title = "Corpus authorship by sex") + 
+  theme(
+    panel.background = element_rect(fill='transparent', color=NA), #transparent panel bg - remove color tag for border
+    plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
+    panel.grid.major.y = element_line(color = "grey60"), # leave y major gridlines
+    panel.grid.minor = element_blank(), #remove minor gridlines
+    legend.background = element_rect(fill='transparent'), #transparent legend bg
+    legend.box.background = element_rect(fill='transparent') #transparent legend panel
+  )
+
+# plot maleness vs femaleness with various thresholds
+
+# set some variables to make later line-drawing easier
+thresholdTotalRows <- sum(thresholdEffect[thresholdEffect$thresholdValue=='60%',c('rowCount')])
+
+thresholdM60 <- 
+  thresholdEffect %>% 
+  filter(thresholdValue=='60%' & perceivedSex=='Male') %>%
+  pull(rowCount)
+
+thresholdI60 <-
+  thresholdEffect %>% 
+  filter(thresholdValue=='60%' & perceivedSex=='Indeterminate') %>%
+  pull(rowCount)
+
+# normal line graph of the values
+ggplot(thresholdEffect, aes(x=thresholdValue, y=rowCount, color=perceivedSex, fill=perceivedSex)) + 
+  geom_line(aes(group=perceivedSex))+
+  geom_point(size=2, shape=21)
+
+# stacked area graph
+ggplot(thresholdEffect, aes(x=thresholdValue, y=rowCount, color=perceivedSex, fill=perceivedSex)) + 
+  geom_area(aes(group=perceivedSex),
+            color="black",
+            size=.2) +
+  geom_hline(yintercept=thresholdTotalRows/2,linetype="dashed") +
+  annotate("text",x=3.5,y=(thresholdTotalRows/2)+(thresholdTotalRows/30), label="50%")+
+  geom_hline(yintercept=thresholdM60+(thresholdI60/2), linetype="dotted") +
+  #labs(title="Effect of different threshold values on perceived sex of authors in the corpus")+
+  theme_minimal()
 
 ################################################################################
 ### HYPOTHESIS 2
@@ -48,10 +92,26 @@ ggplot(bookSummaries, aes(x = authorProbableSex)) +
 # add a rough word count
 bookSummaries$summaryWordCount <- str_count(bookSummaries$plotSummary, '\\w+')
 
-wordCounts <- bookSummaries %>% group_by(authorProbableSex) %>% dplyr::summarize(meanWords = mean(summaryWordCount))
+wordCounts <- bookSummaries %>% group_by(perceivedSex60) %>% dplyr::summarize(meanWords = round(mean(summaryWordCount),digits=1))
 
 # plot summary word count by authorSex
-ggplot(wordCounts, aes(x = authorProbableSex, y = meanWords)) + 
+ggplot(wordCounts, aes(x = perceivedSex60, y = meanWords, fill=perceivedSex60)) + 
+  geom_col() +
+  geom_text(aes(label = meanWords), vjust = 1.5, color = "black", size=20)+
+  # labs(title = "Average word count of plot summary by author's sex") +
+  theme(
+    panel.background = element_rect(fill='transparent', color=NA), #transparent panel bg - remove color tag for border
+    plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
+    panel.grid.major.y = element_line(color = "grey60"), # leave y major gridlines
+    panel.grid.minor = element_blank(), #remove minor gridlines
+    legend.background = element_rect(fill='transparent'), #transparent legend bg
+    legend.box.background = element_rect(fill='transparent') #transparent legend panel
+  )
+
+wordCounts <- bookSummaries %>% group_by(perceivedSex99) %>% dplyr::summarize(meanWords = mean(summaryWordCount))
+
+# plot summary word count by authorSex at 99% threshold
+ggplot(wordCounts, aes(x = perceivedSex99, y = meanWords)) + 
   geom_col() +
   geom_text(aes(label = meanWords), vjust = 1.5, color = "white")+
   labs(title = "Average word count of plot summary by author's sex") +
@@ -69,8 +129,13 @@ ggplot(wordCounts, aes(x = authorProbableSex, y = meanWords)) +
 
 bookSummaries$authorSexInt <- NULL
 
-bookSummaries$authorSexInt <- ifelse(bookSummaries$authorProbableSex == 'Male',1,
-                                     ifelse(bookSummaries$authorProbableSex == 'Female',0,NA))
+bookSummaries$authorSexInt <- ifelse(bookSummaries$perceivedSex60 == 'Male',1,
+                                     ifelse(bookSummaries$perceivedSex60 == 'Female',0,NA))
+
+bookSummaries$authorSexInt99 <- NULL
+
+bookSummaries$authorSexInt99 <- ifelse(bookSummaries$perceivedSex99 == 'Male',1,
+                                     ifelse(bookSummaries$perceivedSex99 == 'Female',0,NA))
 
 #-------------------------------------------------------------------------------
 # different correlation testing options
@@ -96,28 +161,37 @@ cor(bookSummaries[,c("authorSexInt","summaryWordCount")], method = c("pearson"),
 # Hmisc for detailed rho and p values
 library(Hmisc)
 
-res2 <- rcorr(as.matrix(bookSummaries[,c("authorSexInt","summaryWordCount")]))
-
-res2$r
-
-res2$P 
+rcorr(as.matrix(bookSummaries[,c("authorSexInt","summaryWordCount")]))$r
+rcorr(as.matrix(bookSummaries[,c("authorSexInt","summaryWordCount")]))$P
 
 # p = 0.1224107 so there is no statistical significance
+
+# recheck at 99%
+corr.test(bookSummaries$authorSexInt99, bookSummaries$summaryWordCount)
+cor(bookSummaries[,c("authorSexInt99","summaryWordCount")], method = c("pearson"), use = "complete.obs")
+rcorr(as.matrix(bookSummaries[,c("authorSexInt99","summaryWordCount")]))$r
+rcorr(as.matrix(bookSummaries[,c("authorSexInt99","summaryWordCount")]))$P
+
+# recheck using nameMaleness
+corr.test(bookSummaries$nameMaleness, bookSummaries$summaryWordCount)
+cor(bookSummaries[,c("nameMaleness","summaryWordCount")], method = c("pearson"), use = "complete.obs")
+rcorr(as.matrix(bookSummaries[,c("nameMaleness","summaryWordCount")]))$r
+rcorr(as.matrix(bookSummaries[,c("nameMaleness","summaryWordCount")]))$P
 
 #-------------------------------------------------------------------------------
 # H2 CHECK MEDIAN AND OTHER STATS
 #-------------------------------------------------------------------------------
-wordCountStats <- bookSummaries %>% group_by(authorProbableSex) %>% 
+wordCountStats <- bookSummaries %>% group_by(perceivedSex60) %>% 
   dplyr::summarize(meanWords = mean(summaryWordCount),
-                   medianWords = median(summaryWordCount),
+                   medianWords = round(median(summaryWordCount),digits=1),
                    maxWords = max(summaryWordCount),
                    minWords = min(summaryWordCount))
 
 # plot summary word count by authorSex
-ggplot(wordCountStats, aes(x = authorProbableSex, y = medianWords)) + 
+ggplot(wordCountStats, aes(x = perceivedSex60, y = medianWords, fill=perceivedSex60)) + 
   geom_col() +
-  geom_text(aes(label = medianWords), vjust = 1.5, color = "white")+
-  labs(title = "Median word count of plot summary by author's sex") +
+  geom_text(aes(label = medianWords), vjust = 1.5, color = "black", size=20)+
+  # labs(title = "Median word count of plot summary by author's sex") +
   theme(
     panel.background = element_rect(fill='transparent', color=NA), #transparent panel bg - remove color tag for border
     plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
@@ -148,9 +222,9 @@ ggplot(bookSummaries, aes(x=summaryWordCount)) +
   geom_density(alpha=.2, fill="#FF6666") 
 
 # Interleaved histograms with mean lines
-ggplot(bookSummaries[bookSummaries$authorProbableSex=='Male'|bookSummaries$authorProbableSex=='Female',], aes(x=summaryWordCount, color=authorProbableSex)) +
+ggplot(bookSummaries[bookSummaries$perceivedSex60=='Male'|bookSummaries$perceivedSex60=='Female',], aes(x=summaryWordCount, color=perceivedSex60)) +
   geom_histogram(fill="white", position="dodge")+
-  geom_vline(data=wordCountStats, aes(xintercept=meanWords, color=authorProbableSex),
+  geom_vline(data=wordCountStats, aes(xintercept=meanWords, color=perceivedSex60),
              linetype="dashed")+
   theme(legend.position="top")
 
@@ -250,11 +324,11 @@ chisq.test(bookSummaries$authorSexInt, bookSummaries$characterSexImbalanceInt)$o
 
 # attempt with more categories
 
-hyp4dataSummary <- bookSummaries %>% filter(authorProbableSex %in% c('Male','Female') & characterSexImbalanceText != 'Unknown') %>% group_by(authorProbableSex) %>% count(characterSexImbalanceText) %>% print(n=100)
+hyp4dataSummary <- bookSummaries %>% filter(perceivedSex60 %in% c('Male','Female') & characterSexImbalanceText != 'Unknown') %>% group_by(perceivedSex60) %>% count(characterSexImbalanceText) %>% print(n=100)
 
-hyp4data <- bookSummaries %>% filter(authorProbableSex %in% c('Male','Female') & characterSexImbalanceText != 'Unknown') %>% select(authorProbableSex,characterSexImbalanceText)
+hyp4data <- bookSummaries %>% filter(perceivedSex60 %in% c('Male','Female') & characterSexImbalanceText != 'Unknown') %>% select(perceivedSex60,characterSexImbalanceText)
 
-hyp4chisq <- chisq.test(hyp4data$authorProbableSex,hyp4data$characterSexImbalanceText)
+hyp4chisq <- chisq.test(hyp4data$perceivedSex60,hyp4data$characterSexImbalanceText)
 
 # ensure significance
 hyp4chisq$p.value
@@ -270,7 +344,7 @@ corrplot(hyp4chisq$residuals,is.cor=FALSE)
 
 # reorder the columns
 hyp4data$characterSexImbalanceText <- as.factor(hyp4data$characterSexImbalanceText)
-hyp4data$authorProbableSex <- as.factor(hyp4data$authorProbableSex)
+hyp4data$perceivedSex60 <- as.factor(hyp4data$perceivedSex60)
 
 levels(hyp4data$characterSexImbalanceText)
 hyp4data$characterSexImbalanceText <- factor(hyp4data$characterSexImbalanceText, levels=c('Characters are nearly all female',
@@ -279,7 +353,7 @@ hyp4data$characterSexImbalanceText <- factor(hyp4data$characterSexImbalanceText,
                                                                                           'Characters are mostly male',
                                                                                           'Characters are nearly all male'))
 
-hyp4chisq <- chisq.test(hyp4data$authorProbableSex,hyp4data$characterSexImbalanceText)
+hyp4chisq <- chisq.test(hyp4data$perceivedSex60,hyp4data$characterSexImbalanceText)
 
 corrplot(hyp4chisq$residuals,is.cor=FALSE)
 

@@ -38,6 +38,9 @@ bookSummaries$authorFirst <- trimws(str_extract(bookSummaries$author,"^[:alpha:]
 
 # bookSummaries %>% filter(!is.na(authorFirst)) %>% nrow() # 13303 records
 
+# remove rows where no author first name was found
+# bookSummaries <- bookSummaries %>% filter(!is.na(authorFirst))
+
 # bookSummaries %>% filter(!is.na(authorFirst)) %>%  count(authorFirst) %>% arrange(desc(n)) # John = 478
 
 # describe the sexByName dataset
@@ -109,10 +112,20 @@ probableSex$perceivedSex99 <- case_when(probableSex$nameMaleness >= .99 ~ "Male"
 # probableSex %>% count(probableSex)
 
 # join probableSex into the bookSummaries data
-bookSummaries <- left_join(bookSummaries, probableSex[,c('name','probableSex','perceivedSex60','perceivedSex70','perceivedSex80','perceivedSex90','perceivedSex95','perceivedSex99')], by=c("authorFirst" = "name"), )
+bookSummaries <- left_join(bookSummaries, probableSex[,c('name','nameMaleness','probableSex','perceivedSex60','perceivedSex70','perceivedSex80','perceivedSex90','perceivedSex95','perceivedSex99')], by=c("authorFirst" = "name"), )
 
 # rename the "probableSex" column to be more clear for further processing
 bookSummaries <- bookSummaries %>% rename(authorProbableSex = probableSex)
+
+# replace NA probable sex values with Indeterminate
+# bookSummaries[is.na(bookSummaries$authorProbableSex),c('authorFirst','authorProbableSex')] %>% unique() %>% print(n=205)
+bookSummaries$authorProbableSex[is.na(bookSummaries$authorProbableSex)] <- 'Indeterminate'
+bookSummaries$perceivedSex60[is.na(bookSummaries$perceivedSex60)] <- 'Indeterminate'
+bookSummaries$perceivedSex70[is.na(bookSummaries$perceivedSex70)] <- 'Indeterminate'
+bookSummaries$perceivedSex80[is.na(bookSummaries$perceivedSex80)] <- 'Indeterminate'
+bookSummaries$perceivedSex90[is.na(bookSummaries$perceivedSex90)] <- 'Indeterminate'
+bookSummaries$perceivedSex95[is.na(bookSummaries$perceivedSex95)] <- 'Indeterminate'
+bookSummaries$perceivedSex99[is.na(bookSummaries$perceivedSex99)] <- 'Indeterminate'
 
 # check effect of perceivedSex higher threshold
 # bookSummaries %>% 
@@ -151,29 +164,3 @@ thresholdEffect$thresholdValue <- case_when(thresholdEffect$thresholdValue == 't
                                             thresholdEffect$thresholdValue == 'threshold90' ~ '90%',
                                             thresholdEffect$thresholdValue == 'threshold95' ~ '95%',
                                             thresholdEffect$thresholdValue == 'threshold99' ~ '99%')
-
-thresholdTotalRows <- sum(thresholdEffect[thresholdEffect$thresholdValue=='60%',c('rowCount')])
-
-thresholdM60 <- 
-  thresholdEffect %>% 
-  filter(thresholdValue=='60%' & perceivedSex=='Male') %>%
-  pull(rowCount)
-
-thresholdI60 <-
-  thresholdEffect %>% 
-  filter(thresholdValue=='60%' & perceivedSex=='Indeterminate') %>%
-  pull(rowCount)
-
-ggplot(thresholdEffect, aes(x=thresholdValue, y=rowCount, color=perceivedSex, fill=perceivedSex)) + 
-  geom_line(aes(group=perceivedSex))+
-  geom_point(size=2, shape=21)
-
-ggplot(thresholdEffect, aes(x=thresholdValue, y=rowCount, color=perceivedSex, fill=perceivedSex)) + 
-  geom_area(aes(group=perceivedSex),
-            color="black",
-            size=.2) +
-  geom_hline(yintercept=thresholdTotalRows/2,linetype="dashed") +
-  annotate("text",x=3.5,y=(thresholdTotalRows/2)+(thresholdTotalRows/30), label="50%")+
-  geom_hline(yintercept=thresholdM60+(thresholdI60/2), linetype="dotted") +
-  #labs(title="Effect of different threshold values on perceived sex of authors in the corpus")+
-  theme_minimal()
